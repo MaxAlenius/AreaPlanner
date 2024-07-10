@@ -1,5 +1,6 @@
 using AreaPlanner.Web;
 using AreaPlanner.Web.Components;
+using AreaPlanner.Web.Culture;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,9 +20,17 @@ builder.Services.AddHttpClient<WeatherApiClient>(client =>
         client.BaseAddress = new("https+http://apiservice");
     });
 
+builder.Services.AddLocalization();
 
 var app = builder.Build();
 
+string[] supportedCultures = ["en-US", "sv-SE"];
+var localizationOptions = new RequestLocalizationOptions()
+    .SetDefaultCulture(supportedCultures[0])
+    .AddSupportedCultures(supportedCultures)
+    .AddSupportedUICultures(supportedCultures);
+
+app.UseRequestLocalization(localizationOptions);
 
 if (!app.Environment.IsDevelopment())
 {
@@ -41,5 +50,6 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.MapDefaultEndpoints();
+app.MapCultureEndpoints();
 
 app.Run();

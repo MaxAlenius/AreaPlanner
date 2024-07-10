@@ -9,35 +9,32 @@
             </button>
             <div class="collapse navbar-collapse" id="navbar">
                 <ul class="navbar-nav">
-                    <div class="nav-item">
+                    <li class="nav-item">
                         <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                             Home
                         </NavLink>
-                    </div>
-                    <div class="nav-item">
+                    </li>
+                    <li class="nav-item">
                         <NavLink class="nav-link" href="projects">
                             Projects
                         </NavLink>
-                    </div>
-                    <div class="nav-item">
+                    </li>
+                    <li class="nav-item">
                         <NavLink class="nav-link" href="counter">
                             Counter
                         </NavLink>
-                    </div>
+                    </li>
 
                 </ul>
                 <ul class="nav navbar-nav ms-auto">
-                    <LanguageSelector />
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="counter">
-                            Counter
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
+                    <li class="nav-item">
+                        <CultureSelector />
+                    </li>
+                    <li class="nav-item">
                         <NavLink class="nav-link" href="weather">
                             Weather
                         </NavLink>
-                    </div>
+                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false"> Menu </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">

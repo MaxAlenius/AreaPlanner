@@ -2,7 +2,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.11.35017.193
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AreaPlanner.AppHost", "AreaPlanner.AppHost\AreaPlanner.AppHost.csproj", "{C3098FDE-8A88-440A-A350-8EF386E44718}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AreaPlanner.AppHost", "AreaPlanner.AppHost\AreaPlanner.AppHost.csproj", "{C3098FDE-8A88-440A-A350-8EF386E44718}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AreaPlanner.ServiceDefaults", "AreaPlanner.ServiceDefaults\AreaPlanner.ServiceDefaults.csproj", "{20F68EDF-AF4E-4C55-96EE-3DC93BC9A4A2}"
 EndProject

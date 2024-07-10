@@ -1,0 +1,32 @@
+﻿@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<select class="form-select" @bind="Culture">
+    <option value="en-US">English</option>
+    <option value="sv-SE">Swedish</option>
+</select>
+
+@code {
+
+    private CultureInfo Culture
+    {
+        get
+        {
+            return CultureInfo.CurrentCulture;
+        }
+        set
+        {
+            if (CultureInfo.CurrentCulture != value)
+            {
+                var uri = new Uri(Navigation.Uri)
+                    .GetComponents(UriComponents.PathAndQuery, UriFormat.Unescaped);
+
+                var cultureEscaped = Uri.EscapeDataString(value.Name);
+
+                var uriEscaped = Uri.EscapeDataString(uri);
+
+                Navigation.NavigateTo($"Culture/Set?culture={cultureEscaped}&redirectUri={uriEscaped}", true);
+            }
+        }
+    }
+}
