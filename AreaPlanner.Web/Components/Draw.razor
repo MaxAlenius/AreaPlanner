@@ -1,0 +1,101 @@
+﻿@page "/draw"
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+<h3>Draw a Shape</h3>
+
+<div class="d-flex flex-wrap">
+    <div class="flex-grow-1 position-relative">
+        <img src="https://esoft.com/int/wp-content/uploads/2022/06/MicrosoftTeams-image-copy-2-1024x791.png"
+             class="img-fluid" width="800" height="600" />
+        <canvas id="drawingCanvas" class="position-absolute top-0 start-0" width="800" height="600"
+                style="border: 1px solid black;"></canvas>
+    </div>
+    <div class="flex-grow-1 p-3">
+        <button @onclick="CalculateArea" class="btn btn-primary mb-3">Calculate Area</button>
+        <p>Area: @area square units</p>
+
+        @if (shapeInformation.Count > 0)
+        {
+            <h4>Shapes Created:</h4>
+            <ul>
+                @foreach (var shapeInfo in shapeInformation)
+                {
+                    <li>@shapeInfo</li>
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+@code {
+    private double area = 0.0;
+    private List<List<Point>> shapes = new();
+    private List<string> shapeInformation = new();
+    private DotNetObjectReference<Draw> dotNetObjectRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            dotNetObjectRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("canvasInterop.initialize", dotNetObjectRef, "drawingCanvas");
+        }
+    }
+
+    [JSInvokable]
+    public void ShapeClosed(List<List<Point>> closedShapes)
+    {
+        shapes = closedShapes;
+
+        // Update shape information list
+        shapeInformation.Clear();
+        for (int i = 0; i < shapes.Count; i++)
+        {
+            double shapeArea = CalculatePolygonArea(shapes[i]);
+            shapeInformation.Add($"Shape {i + 1}: {shapes[i].Count} points, {shapeArea} square units");
+        }
+
+        StateHasChanged();
+    }
+
+    private void CalculateArea()
+    {
+        // Calculate total area for all shapes
+        double totalArea = 0.0;
+        foreach (var shape in shapes)
+        {
+            if (shape.Count < 3)
+                continue;
+
+            totalArea += CalculatePolygonArea(shape);
+        }
+
+        area = totalArea;
+    }
+
+    private double CalculatePolygonArea(List<Point> points)
+    {
+        int n = points.Count;
+        double area = 0.0;
+
+        for (int i = 0; i < n; i++)
+        {
+            Point current = points[i];
+            Point next = points[(i + 1) % n];
+            area += current.X * next.Y - next.X * current.Y;
+        }
+
+        return Math.Abs(area) / 2.0;
+    }
+
+    public void Dispose()
+    {
+        dotNetObjectRef?.Dispose();
+    }
+
+    public class Point
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+    }
+}
