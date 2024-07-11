@@ -74,16 +74,17 @@
         function drawShapes(ctx, shapes) {
             shapes.forEach(points => {
                 ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
                 points.forEach((point, index) => {
-                    if (index === 0) {
-                        ctx.moveTo(point.x, point.y);
-                    } else {
+                    if (index > 0) {
                         ctx.lineTo(point.x, point.y);
                     }
                 });
                 ctx.closePath();
                 ctx.strokeStyle = 'green';
                 ctx.stroke();
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.2)'; // Green fill with 20% opacity
+                ctx.fill();
             });
         }
 
