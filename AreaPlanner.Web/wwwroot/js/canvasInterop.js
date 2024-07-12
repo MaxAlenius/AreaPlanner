@@ -1,4 +1,5 @@
 ﻿window.canvasInterop = {
+    // Initializes the canvas interaction.
     initialize: function (dotNetObjectRef, elementId) {
         console.log('canvasInterop initialized');
         const canvasElement = document.getElementById(elementId);
@@ -15,42 +16,81 @@
 
         let shapes = [];
         let currentPoints = [];
+        let referencePoints = [];
+        let settingReferenceLine = false;
 
-        canvasElement.addEventListener('mousedown', function (event) {
+        // Event listener for handling clicks on the canvas.
+        canvasElement.addEventListener('click', (event) => {
             const rect = canvasElement.getBoundingClientRect();
             const x = event.clientX - rect.left;
             const y = event.clientY - rect.top;
 
+            if (settingReferenceLine) {
+                handleReferenceLine(x, y);
+            } else {
+                handleDrawing(x, y);
+            }
+        });
+
+        // Handles creating a reference line between two points.
+        function handleReferenceLine(x, y) {
+            referencePoints.push({ x: x, y: y });
+            drawReferenceLine(context, referencePoints);
+
+            if (referencePoints.length === 2) {
+                const distance = calculateDistance(referencePoints[0], referencePoints[1]);
+                dotNetObjectRef.invokeMethodAsync('SetPixelsPerMeter', distance)
+                    .catch(error => console.error('Error invoking SetPixelsPerMeter:', error));
+                referencePoints = [];
+                settingReferenceLine = false;
+            }
+        }
+
+        // Handles drawing when not setting a reference line.
+        function handleDrawing(x, y) {
             if (currentPoints.length === 0) {
-                // First point of a new shape
                 currentPoints.push({ x: x, y: y });
                 drawPoints(context, currentPoints);
             } else {
-                // Check if the click is close to the first point to close the shape
-                if (isCloseToFirstPoint(currentPoints[0], { x: x, y: y })) {
-                    // Close the shape
-                    shapes.push([...currentPoints]); // No need to add the first point again
-                    currentPoints = [];
-
-                    // Draw all shapes
-                    drawShapes(context, shapes);
-
-                    // Notify Blazor of the closed shape
-                    dotNetObjectRef.invokeMethodAsync('ShapeClosed', shapes)
-                        .catch(error => console.error('Error invoking ShapeClosed:', error));
+                if (currentPoints.length > 2 && isCloseToFirstPoint(currentPoints[0], { x: x, y: y })) {
+                    closeShape(x, y); // Pass x, y to include the last point
                 } else {
-                    // Subsequent points
                     currentPoints.push({ x: x, y: y });
                     drawPoints(context, currentPoints);
                 }
             }
-        });
+        }
 
+        // Closes the shape and sends it to .NET for processing.
+        function closeShape(x, y) {
+            // Include the last point to close the shape properly
+            currentPoints.push({ x: x, y: y });
+            shapes.push([...currentPoints]);
+            currentPoints = [];
+            drawShapes(context, shapes);
+
+            dotNetObjectRef.invokeMethodAsync('ShapeClosed', shapes)
+                .catch(error => console.error('Error invoking ShapeClosed:', error));
+        }
+
+        // Draws a reference line between two points.
+        function drawReferenceLine(ctx, points) {
+            clearCanvas(context);
+            drawShapes(ctx, shapes);
+            if (points.length === 2) {
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
+                ctx.lineTo(points[1].x, points[1].y);
+                ctx.strokeStyle = 'red';
+                ctx.lineWidth = 5;
+                ctx.stroke();
+            }
+        }
+
+        // Draws points on the canvas.
         function drawPoints(ctx, points) {
             clearCanvas(context);
             drawShapes(ctx, shapes);
-
-            // Draw all points in the current shape
             points.forEach((point, index) => {
                 ctx.beginPath();
                 ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
@@ -58,43 +98,69 @@
                 ctx.fill();
                 ctx.closePath();
 
-                // Draw lines between consecutive points
                 if (index > 0) {
                     const prevPoint = points[index - 1];
                     ctx.beginPath();
                     ctx.moveTo(prevPoint.x, prevPoint.y);
                     ctx.lineTo(point.x, point.y);
                     ctx.strokeStyle = 'blue';
+                    ctx.lineWidth = 5;
                     ctx.stroke();
                     ctx.closePath();
                 }
             });
+
+            // Draw the closing line if needed
+            if (points.length > 2 && isCloseToFirstPoint(points[0], points[points.length - 1])) {
+                ctx.beginPath();
+                ctx.moveTo(points[points.length - 1].x, points[points.length - 1].y);
+                ctx.lineTo(points[0].x, points[0].y);
+                ctx.strokeStyle = 'blue';
+                ctx.lineWidth = 5;
+                ctx.stroke();
+                ctx.closePath();
+            }
         }
 
+        // Draws shapes based on stored points.
         function drawShapes(ctx, shapes) {
             shapes.forEach(points => {
                 ctx.beginPath();
-                ctx.moveTo(points[0].x, points[0].y);
                 points.forEach((point, index) => {
-                    if (index > 0) {
+                    if (index === 0) {
+                        ctx.moveTo(point.x, point.y);
+                    } else {
                         ctx.lineTo(point.x, point.y);
                     }
                 });
                 ctx.closePath();
                 ctx.strokeStyle = 'green';
                 ctx.stroke();
-                ctx.fillStyle = 'rgba(0, 255, 0, 0.2)'; // Green fill with 20% opacity
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
                 ctx.fill();
             });
         }
 
+        // Clears the canvas.
         function clearCanvas(ctx) {
             ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
         }
 
+        // Checks if a point is close to the first point.
         function isCloseToFirstPoint(firstPoint, currentPoint) {
             const distance = Math.sqrt(Math.pow(currentPoint.x - firstPoint.x, 2) + Math.pow(currentPoint.y - firstPoint.y, 2));
             return distance < 10; // Adjust threshold as needed
         }
+
+        // Calculates the distance between two points.
+        function calculateDistance(point1, point2) {
+            return Math.sqrt(Math.pow(point2.x - point1.x, 2) + Math.pow(point2.y - point1.y, 2));
+        }
+
+        // Exposes a function to start setting a reference line.
+        window.canvasInterop.startReferenceLine = function () {
+            referencePoints = [];
+            settingReferenceLine = true;
+        };
     }
 };
