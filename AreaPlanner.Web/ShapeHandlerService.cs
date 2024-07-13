@@ -1,30 +1,41 @@
-﻿namespace AreaPlanner.Web;
+﻿using System.Globalization;
+
+namespace AreaPlanner.Web;
 
 public interface IShapeHandlerService
 {
-    double CalculateShapeArea(List<List<Point>> shapes, double pixelsPerMeter, List<string> shapeInformation);
+    List<ShapeInfo> CalculateShapeArea(List<List<Point>> shapes);
 }
 
-public class ShapeHandlerService(IShapeCalculatorService shapeCalculatorService) : IShapeHandlerService
+public class ShapeHandlerService : IShapeHandlerService
 {
-    public IShapeCalculatorService ShapeCalculatorService { get; } = shapeCalculatorService;
-
-    public double CalculateShapeArea(List<List<Point>> shapes, double pixelsPerMeter, List<string> shapeInformation)
+    public List<ShapeInfo> CalculateShapeArea(List<List<Point>> shapes)
     {
-        double totalArea = 0.0;
+        var shapeInfos = new List<ShapeInfo>();
 
-        for (int i = 0; i < shapes.Count; i++)
+        foreach (var shape in shapes)
         {
-            var shape = shapes[i];
-            if (shape.Count < 3)
-                continue;
-
-            double shapeArea = ShapeCalculatorService.CalculatePolygonArea(shape, pixelsPerMeter);
-            shapeInformation.Add($"Shape {i + 1}: {shape.Count - 1} points, {shapeArea:F2} square meters");
-
-            totalArea += shapeArea;
+            double area = CalculatePolygonArea(shape);
+            shapeInfos.Add(new ShapeInfo(area, shape.Count));
         }
 
-        return totalArea;
+        return shapeInfos;
+    }
+
+    private static double CalculatePolygonArea(List<Point> points)
+    {
+        int numPoints = points.Count;
+        double area = 0.0;
+
+        for (int i = 0; i < numPoints; i++)
+        {
+            Point currentPoint = points[i];
+            Point nextPoint = points[(i + 1) % numPoints];
+            area += currentPoint.X * nextPoint.Y;
+            area -= currentPoint.Y * nextPoint.X;
+        }
+
+        area = Math.Abs(area) / 2.0;
+        return area;
     }
 }

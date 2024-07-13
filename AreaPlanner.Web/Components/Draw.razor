@@ -17,16 +17,21 @@
             <label for="realLifeDistance">Real-life Distance (meters):</label>
             <input type="number" @bind="realLifeDistance" id="realLifeDistance" class="form-control mb-3" />
             <button @onclick="SetReferenceLine" class="btn btn-primary mb-3">Set Reference Line</button>
+            <button @onclick="UndoLastAction" class="btn btn-secondary mb-3">Undo</button>
+            <button @onclick="RedoLastAction" class="btn btn-secondary mb-3">Redo</button>
         </div>
         <p>Area: @area square meters</p>
 
-        @if (shapeInformation.Count > 0)
+        @if (shapeInfos.Count > 0)
         {
             <h4>Shapes Created:</h4>
             <ul>
-                @foreach (var shapeInfo in shapeInformation)
+                @foreach (var shapeInfo in shapeInfos)
                 {
-                    <li>@shapeInfo</li>
+                    <li>
+                        @shapeInfo.Area
+                        <button @onclick="() => DeleteShape(shapeInfos.IndexOf(shapeInfo))" class="btn btn-danger btn-sm">Delete</button>
+                    </li>
                 }
             </ul>
         }
@@ -36,7 +41,7 @@
 @code {
     private double area = 0.0;
     private List<List<Point>> shapes = new();
-    private List<string> shapeInformation = new();
+    private List<ShapeInfo> shapeInfos = new();
     private DotNetObjectReference<Draw> dotNetObjectRef = null!;
     private double realLifeDistance;
     private double pixelsPerMeter;
@@ -55,11 +60,7 @@
     public void ShapeClosed(List<List<Point>> closedShapes)
     {
         shapes = closedShapes;
-
-        shapeInformation.Clear();
-        area = ShapeHandlerService.CalculateShapeArea(shapes, pixelsPerMeter, shapeInformation);
-
-        StateHasChanged();
+        UpdateShapeInformation();
     }
 
     [JSInvokable]
@@ -67,6 +68,14 @@
     {
         pixelsPerMeter = referenceLength / realLifeDistance;
         settingReferenceLine = false;
+        UpdateShapeInformation(); // Update shapes immediately after setting pixelsPerMeter
+    }
+
+    [JSInvokable]
+    public void UpdateShapes(List<List<Point>> updatedShapes)
+    {
+        shapes = updatedShapes;
+        UpdateShapeInformation();
     }
 
     private async Task SetReferenceLine()
@@ -75,9 +84,32 @@
         await CanvasInteropService.StartReferenceLine();
     }
 
+    private async Task UndoLastAction()
+    {
+        await JSRuntime.InvokeVoidAsync("canvasInterop.undoLastAction");
+    }
+
+    private async Task RedoLastAction()
+    {
+        await JSRuntime.InvokeVoidAsync("canvasInterop.redoLastAction");
+    }
+
+    private async Task DeleteShape(int index)
+    {
+        await JSRuntime.InvokeVoidAsync("canvasInterop.deleteShape", index);
+    }
+
+    private void UpdateShapeInformation()
+    {
+        shapeInfos.Clear();
+        var shapesToCalculate = shapes.Select(s => s.Select(p => new Point(p.X / pixelsPerMeter, p.Y / pixelsPerMeter)).ToList()).ToList();
+        shapeInfos.AddRange(ShapeHandlerService.CalculateShapeArea(shapesToCalculate));
+        area = shapeInfos.Sum(si => si.Area);
+        StateHasChanged();
+    }
+
     public void Dispose()
     {
         dotNetObjectRef?.Dispose();
     }
-
 }

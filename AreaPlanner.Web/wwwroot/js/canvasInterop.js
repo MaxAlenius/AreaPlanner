@@ -162,5 +162,68 @@
             referencePoints = [];
             settingReferenceLine = true;
         };
+
+        let undoStack = [];
+        let redoStack = [];
+
+        function handleDrawing(x, y) {
+            if (currentPoints.length === 0) {
+                currentPoints.push({ x: x, y: y });
+                drawPoints(context, currentPoints);
+            } else {
+                if (currentPoints.length > 2 && isCloseToFirstPoint(currentPoints[0], { x: x, y: y })) {
+                    closeShape(x, y); // Pass x, y to include the last point
+                } else {
+                    currentPoints.push({ x: x, y: y });
+                    drawPoints(context, currentPoints);
+                }
+            }
+        };
+
+        // Undo the last drawing action
+        window.canvasInterop.undoLastAction = function () {
+            if (shapes.length > 0) {
+                redoStack.push(shapes.pop());
+                redrawCanvas();
+            } else if (currentPoints.length > 0) {
+                currentPoints.pop();
+                redrawCanvas();
+            }
+        };
+
+        // Redo the last undone action
+        window.canvasInterop.redoLastAction = function () {
+            if (redoStack.length > 0) {
+                shapes.push(redoStack.pop());
+                redrawCanvas();
+            }
+        };
+
+        // Redraw the entire canvas
+        function redrawCanvas() {
+            clearCanvas(context);
+            drawShapes(context, shapes);
+            drawPoints(context, currentPoints);
+
+            // Update the shapes in .NET
+            dotNetObjectRef.invokeMethodAsync('UpdateShapes', shapes)
+                .catch(error => console.error('Error invoking UpdateShapes:', error));
+        }
+
+
+        // Function to delete a shape
+        window.canvasInterop.deleteShape = function(index) {
+            if (index >= 0 && index < shapes.length) {
+                shapes.splice(index, 1);
+                redrawCanvas();
+                dotNetObjectRef.invokeMethodAsync('ShapeClosed', shapes)
+                    .catch(error => console.error('Error invoking ShapeClosed:', error));
+            }
+        }
+
+        // Function to select a shape for editing (to be implemented)
+        function selectShape(index) {
+            // Logic to allow shape editing
+        }
     }
 };
