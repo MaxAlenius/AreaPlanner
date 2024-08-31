@@ -5,11 +5,33 @@
 @inject ICanvasInteropService CanvasInteropService
 
 @rendermode InteractiveServer
-<h3>Draw a Shape</h3>
+<style>
+    .canvas-container {
+        position: relative;
+        width: 414px;
+        height: 580px;
+    }
 
+    .guidelines-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        background-image: linear-gradient(to right, rgba(0, 0, 0, 0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+        background-size: 10px 10px;
+        display: none;
+    }
+</style>
+
+<h3>Draw a Shape</h3>
 <div class="d-flex flex-wrap">
     <div class="flex-grow-1 position-relative">
-        <canvas id="drawingCanvas"></canvas>
+        <div class="canvas-container position-relative">
+            <canvas id="drawingCanvas"></canvas>
+            <div class="guidelines-overlay position-absolute top-0 start-0"></div>
+        </div>
     </div>
     <div class="flex-grow-1 p-3">
         <div>
@@ -18,6 +40,7 @@
             <button @onclick="SetReferenceLine" class="btn btn-primary mb-3">Set Reference Line</button>
             <button @onclick="UndoLastAction" class="btn btn-secondary mb-3">Undo</button>
             <button @onclick="RedoLastAction" class="btn btn-secondary mb-3">Redo</button>
+            <button @onclick="SaveEdits" class="btn btn-success mb-3">Save Edits</button>
         </div>
         <p>Area: @area square meters</p>
 
@@ -29,6 +52,7 @@
                 {
                     <li>
                         @shapeInfo.Area
+                        <button @onclick="() => SelectShape(shapeInfos.IndexOf(shapeInfo))" class="btn btn-warning btn-sm">Edit</button>
                         <button @onclick="() => DeleteShape(shapeInfos.IndexOf(shapeInfo))" class="btn btn-danger btn-sm">Delete</button>
                     </li>
                 }
@@ -45,6 +69,7 @@
     private double realLifeDistance;
     private double pixelsPerMeter;
     private bool settingReferenceLine = true;
+    private bool displayGridGuidelines = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -67,7 +92,8 @@
     {
         pixelsPerMeter = referenceLength / realLifeDistance;
         settingReferenceLine = false;
-        UpdateShapeInformation(); // Update shapes immediately after setting pixelsPerMeter
+        UpdateGuidelinesOverlay();
+        UpdateShapeInformation();
     }
 
     [JSInvokable]
@@ -93,6 +119,16 @@
         await JSRuntime.InvokeVoidAsync("canvasInterop.redoLastAction");
     }
 
+    private async Task SaveEdits()
+    {
+        await JSRuntime.InvokeVoidAsync("canvasInterop.saveEdits");
+    }
+
+    private async Task SelectShape(int index)
+    {
+        await JSRuntime.InvokeVoidAsync("canvasInterop.selectShape", index);
+    }
+
     private async Task DeleteShape(int index)
     {
         await JSRuntime.InvokeVoidAsync("canvasInterop.deleteShape", index);
@@ -102,9 +138,22 @@
     {
         shapeInfos.Clear();
         var shapesToCalculate = shapes.Select(s => s.Select(p => new Point(p.X / pixelsPerMeter, p.Y / pixelsPerMeter)).ToList()).ToList();
-        shapeInfos.AddRange(ShapeHandlerService.CalculateShapeArea(shapesToCalculate));
+        var calculatedShapes = ShapeHandlerService.CalculateShapeArea(shapesToCalculate);
+        shapeInfos.AddRange(calculatedShapes);
         area = shapeInfos.Sum(si => si.Area);
         StateHasChanged();
+    }
+
+    private async Task UpdateGuidelinesOverlay()
+    {
+        var overlay = await JSRuntime.InvokeAsync<IJSObjectReference>("document.querySelector", ".guidelines-overlay");
+
+        if (overlay != null)
+        {
+            await overlay.InvokeVoidAsync("setAttribute", "style", $"background-size: {pixelsPerMeter}px {pixelsPerMeter}px; display: block;");
+            displayGridGuidelines = true;
+            StateHasChanged();
+        }
     }
 
     public void Dispose()

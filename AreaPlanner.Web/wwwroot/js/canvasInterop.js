@@ -1,6 +1,14 @@
 ﻿window.canvasInterop = {
-    initialize: function (dotNetObjectRef, elementId) {
+    initialize(dotNetObjectRef, elementId) {
         console.log('canvasInterop initialized');
+
+        let shapes = [];
+        let currentPoints = [];
+        let referencePoints = [];
+        let settingReferenceLine = false;
+        let redoStack = [];
+        let selectedShapeIndex = null;
+
         const canvasElement = document.getElementById(elementId);
         if (!canvasElement) {
             console.error(`Canvas element with id '${elementId}' not found`);
@@ -18,109 +26,87 @@
         img.onload = () => {
             canvasElement.width = img.width;
             canvasElement.height = img.height;
-            drawImage();
+            redrawCanvas();
         };
 
-        let shapes = [];
-        let currentPoints = [];
-        let referencePoints = [];
-        let settingReferenceLine = false;
-        const redoStack = [];
-
-        function drawImage() {
+        function redrawCanvas() {
+            clearCanvas(context);
             context.drawImage(img, 0, 0);
+            drawShapes(context, shapes);
+            drawPoints(context, currentPoints);
         }
 
-        function drawShapes() {
-            drawImage();
-            shapes.forEach(shape => {
-                context.beginPath();
-                shape.forEach((point, index) => {
-                    if (index === 0) {
-                        context.moveTo(point.x, point.y);
-                    } else {
-                        context.lineTo(point.x, point.y);
-                    }
-                });
-                context.closePath();
-                context.strokeStyle = 'green';
-                context.stroke();
-                context.fillStyle = 'rgba(0, 255, 0, 0.2)';
-                context.fill();
-            });
+        function clearCanvas(ctx) {
+            ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
         }
 
-        function drawPoints() {
-            drawImage();
-            drawShapes();
-            currentPoints.forEach((point, index) => {
-                context.beginPath();
-                context.arc(point.x, point.y, 5, 0, 2 * Math.PI);
-                context.fillStyle = 'blue';
-                context.fill();
-                context.closePath();
+        function drawReferenceLine(ctx, points) {
+            redrawCanvas();
+            if (points.length === 2) {
+                drawLine(ctx, points[0], points[1], 'red');
+            }
+        }
 
+        function drawPoints(ctx, points) {
+            points.forEach((point, index) => {
+                drawCircle(ctx, point, 5, 'blue');
                 if (index > 0) {
-                    const prevPoint = currentPoints[index - 1];
-                    context.beginPath();
-                    context.moveTo(prevPoint.x, prevPoint.y);
-                    context.lineTo(point.x, point.y);
-                    context.strokeStyle = 'blue';
-                    context.lineWidth = 5;
-                    context.stroke();
-                    context.closePath();
+                    drawLine(ctx, points[index - 1], point, 'blue');
                 }
             });
 
-            if (currentPoints.length > 2 && isCloseToFirstPoint(currentPoints[0], currentPoints[currentPoints.length - 1])) {
-                context.beginPath();
-                context.moveTo(currentPoints[currentPoints.length - 1].x, currentPoints[currentPoints.length - 1].y);
-                context.lineTo(currentPoints[0].x, currentPoints[0].y);
-                context.strokeStyle = 'blue';
-                context.lineWidth = 5;
-                context.stroke();
-                context.closePath();
+            if (points.length > 2 && isCloseToFirstPoint(points[0], points[points.length - 1])) {
+                drawLine(ctx, points[points.length - 1], points[0], 'blue');
             }
         }
 
-        function drawReferenceLine() {
-            drawImage();
-            drawShapes();
-            if (referencePoints.length === 2) {
-                context.beginPath();
-                context.moveTo(referencePoints[0].x, referencePoints[0].y);
-                context.lineTo(referencePoints[1].x, referencePoints[1].y);
-                context.strokeStyle = 'red';
-                context.lineWidth = 5;
-                context.stroke();
-            }
+        function drawShapes(ctx, shapes) {
+            shapes.forEach(points => {
+                ctx.beginPath();
+                points.forEach((point, index) => {
+                    if (index === 0) {
+                        ctx.moveTo(point.x, point.y);
+                    } else {
+                        ctx.lineTo(point.x, point.y);
+                    }
+                });
+                ctx.closePath();
+                ctx.strokeStyle = 'green';
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+                ctx.fill();
+            });
         }
 
-        function clearCanvas() {
-            context.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            drawImage();
+        function drawLine(ctx, from, to, color) {
+            ctx.beginPath();
+            ctx.moveTo(from.x, from.y);
+            ctx.lineTo(to.x, to.y);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 5;
+            ctx.stroke();
+            ctx.closePath();
+        }
+
+        function drawCircle(ctx, point, radius, color) {
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.closePath();
         }
 
         function isCloseToFirstPoint(firstPoint, currentPoint) {
-            return calculateDistance(firstPoint, currentPoint) < 10; // Adjust threshold as needed
+            return calculateDistance(firstPoint, currentPoint) < 10;
         }
 
         function calculateDistance(point1, point2) {
             return Math.sqrt(Math.pow(point2.x - point1.x, 2) + Math.pow(point2.y - point1.y, 2));
         }
 
-        function redrawCanvas() {
-            clearCanvas();
-            drawShapes();
-            drawPoints();
-
-            dotNetObjectRef.invokeMethodAsync('UpdateShapes', shapes)
-                .catch(error => console.error('Error invoking UpdateShapes:', error));
-        }
-
         function handleReferenceLine(x, y) {
             referencePoints.push({ x, y });
-            drawReferenceLine();
+            drawReferenceLine(context, referencePoints);
 
             if (referencePoints.length === 2) {
                 const distance = calculateDistance(referencePoints[0], referencePoints[1]);
@@ -134,56 +120,31 @@
         function handleDrawing(x, y) {
             if (currentPoints.length === 0) {
                 currentPoints.push({ x, y });
+                drawPoints(context, currentPoints);
             } else {
                 if (currentPoints.length > 2 && isCloseToFirstPoint(currentPoints[0], { x, y })) {
                     closeShape(x, y);
                 } else {
                     currentPoints.push({ x, y });
+                    drawPoints(context, currentPoints);
                 }
             }
-            drawPoints();
         }
 
         function closeShape(x, y) {
             currentPoints.push({ x, y });
-            shapes.push([...currentPoints]);
+            if (selectedShapeIndex !== null) {
+                shapes[selectedShapeIndex] = [...currentPoints];
+                selectedShapeIndex = null;
+            } else {
+                shapes.push([...currentPoints]);
+            }
             currentPoints = [];
             redrawCanvas();
 
             dotNetObjectRef.invokeMethodAsync('ShapeClosed', shapes)
                 .catch(error => console.error('Error invoking ShapeClosed:', error));
         }
-
-        window.canvasInterop.startReferenceLine = function () {
-            referencePoints = [];
-            settingReferenceLine = true;
-        };
-
-        window.canvasInterop.undoLastAction = function () {
-            if (shapes.length > 0) {
-                redoStack.push(shapes.pop());
-                redrawCanvas();
-            } else if (currentPoints.length > 0) {
-                currentPoints.pop();
-                redrawCanvas();
-            }
-        };
-
-        window.canvasInterop.redoLastAction = function () {
-            if (redoStack.length > 0) {
-                shapes.push(redoStack.pop());
-                redrawCanvas();
-            }
-        };
-
-        window.canvasInterop.deleteShape = function (index) {
-            if (index >= 0 && index < shapes.length) {
-                shapes.splice(index, 1);
-                redrawCanvas();
-                dotNetObjectRef.invokeMethodAsync('ShapeClosed', shapes)
-                    .catch(error => console.error('Error invoking ShapeClosed:', error));
-            }
-        };
 
         canvasElement.addEventListener('click', (event) => {
             const rect = canvasElement.getBoundingClientRect();
@@ -196,5 +157,64 @@
                 handleDrawing(x, y);
             }
         });
+
+        window.canvasInterop.startReferenceLine = function () {
+            referencePoints = [];
+            settingReferenceLine = true;
+        };
+
+        window.canvasInterop.undoLastAction = function () {
+            if (currentPoints.length > 0) {
+                redoStack.push(currentPoints.pop());
+            } else if (shapes.length > 0) {
+                let lastShape = shapes.pop();
+                if (lastShape.length > 0) {
+                    currentPoints = lastShape;
+                    redoStack.push(currentPoints.pop());
+                }
+            }
+            redrawCanvas();
+        };
+
+        window.canvasInterop.redoLastAction = function () {
+            if (redoStack.length > 0) {
+                const lastAction = redoStack.pop();
+                if (currentPoints.length > 0) {
+                    currentPoints.push(lastAction);
+                } else {
+                    shapes.push([lastAction]);
+                }
+            }
+            redrawCanvas();
+        };
+
+        window.canvasInterop.deleteShape = function (index) {
+            if (index >= 0 && index < shapes.length) {
+                shapes.splice(index, 1);
+                redrawCanvas();
+                dotNetObjectRef.invokeMethodAsync('ShapeClosed', shapes)
+                    .catch(error => console.error('Error invoking ShapeClosed:', error));
+            }
+        };
+
+        window.canvasInterop.selectShape = function (index) {
+            if (index >= 0 && index < shapes.length) {
+                selectedShapeIndex = index;
+                currentPoints = [...shapes[index]];
+                redrawCanvas();
+            }
+        };
+
+        window.canvasInterop.saveEdits = function () {
+            if (selectedShapeIndex !== null && currentPoints.length > 0) {
+                shapes[selectedShapeIndex] = [...currentPoints];
+                currentPoints = [];
+                selectedShapeIndex = null;
+                redrawCanvas();
+
+                dotNetObjectRef.invokeMethodAsync('ShapeClosed', shapes)
+                    .catch(error => console.error('Error invoking ShapeClosed:', error));
+            }
+        };
     }
 };
