@@ -5,32 +5,13 @@
 @inject ICanvasInteropService CanvasInteropService
 
 @rendermode InteractiveServer
-<style>
-    .canvas-container {
-        position: relative;
-        width: 414px;
-        height: 580px;
-    }
-
-    .guidelines-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        background-image: linear-gradient(to right, rgba(0, 0, 0, 0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
-        background-size: 10px 10px;
-        display: none;
-    }
-</style>
 
 <h3>Draw a Shape</h3>
 <div class="d-flex flex-wrap">
     <div class="flex-grow-1 position-relative">
-        <div class="canvas-container position-relative">
+        <div class="position-relative">
             <canvas id="drawingCanvas"></canvas>
-            <div class="guidelines-overlay position-absolute top-0 start-0"></div>
+            <div class="guidelines-overlay position-absolute top-0 start-0" style="@guidelinesStyle"></div>
         </div>
     </div>
     <div class="flex-grow-1 p-3">
@@ -40,7 +21,7 @@
             <button @onclick="SetReferenceLine" class="btn btn-primary mb-3">Set Reference Line</button>
             <button @onclick="UndoLastAction" class="btn btn-secondary mb-3">Undo</button>
             <button @onclick="RedoLastAction" class="btn btn-secondary mb-3">Redo</button>
-            <button @onclick="SaveEdits" class="btn btn-success mb-3">Save Edits</button>
+            <button @onclick="ToggleGuidelines" class="btn btn-info mb-3">Toggle Guidelines</button>
         </div>
         <p>Area: @area square meters</p>
 
@@ -70,7 +51,7 @@
     private double pixelsPerMeter;
     private bool settingReferenceLine = true;
     private bool displayGridGuidelines = false;
-
+    private string guidelinesStyle => $"background-size: {pixelsPerMeter}px {pixelsPerMeter}px; display: {(displayGridGuidelines ? "block" : "none")};";
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -92,7 +73,7 @@
     {
         pixelsPerMeter = referenceLength / realLifeDistance;
         settingReferenceLine = false;
-        UpdateGuidelinesOverlay();
+        displayGridGuidelines = true;
         UpdateShapeInformation();
     }
 
@@ -111,27 +92,22 @@
 
     private async Task UndoLastAction()
     {
-        await JSRuntime.InvokeVoidAsync("canvasInterop.undoLastAction");
+        await CanvasInteropService.UndoLastAction();
     }
 
     private async Task RedoLastAction()
     {
-        await JSRuntime.InvokeVoidAsync("canvasInterop.redoLastAction");
-    }
-
-    private async Task SaveEdits()
-    {
-        await JSRuntime.InvokeVoidAsync("canvasInterop.saveEdits");
+        await CanvasInteropService.RedoLastAction();
     }
 
     private async Task SelectShape(int index)
     {
-        await JSRuntime.InvokeVoidAsync("canvasInterop.selectShape", index);
+        await CanvasInteropService.SelectShape(index);
     }
 
     private async Task DeleteShape(int index)
     {
-        await JSRuntime.InvokeVoidAsync("canvasInterop.deleteShape", index);
+        await CanvasInteropService.DeleteShape(index);
     }
 
     private void UpdateShapeInformation()
@@ -144,20 +120,14 @@
         StateHasChanged();
     }
 
-    private async Task UpdateGuidelinesOverlay()
-    {
-        var overlay = await JSRuntime.InvokeAsync<IJSObjectReference>("document.querySelector", ".guidelines-overlay");
-
-        if (overlay != null)
-        {
-            await overlay.InvokeVoidAsync("setAttribute", "style", $"background-size: {pixelsPerMeter}px {pixelsPerMeter}px; display: block;");
-            displayGridGuidelines = true;
-            StateHasChanged();
-        }
-    }
-
     public void Dispose()
     {
         dotNetObjectRef?.Dispose();
+    }
+
+    private void ToggleGuidelines()
+    {
+        displayGridGuidelines = !displayGridGuidelines;
+        StateHasChanged();  // Re-render component
     }
 }

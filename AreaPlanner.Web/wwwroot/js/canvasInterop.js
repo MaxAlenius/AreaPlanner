@@ -204,17 +204,5 @@
                 redrawCanvas();
             }
         };
-
-        window.canvasInterop.saveEdits = function () {
-            if (selectedShapeIndex !== null && currentPoints.length > 0) {
-                shapes[selectedShapeIndex] = [...currentPoints];
-                currentPoints = [];
-                selectedShapeIndex = null;
-                redrawCanvas();
-
-                dotNetObjectRef.invokeMethodAsync('ShapeClosed', shapes)
-                    .catch(error => console.error('Error invoking ShapeClosed:', error));
-            }
-        };
     }
 };
