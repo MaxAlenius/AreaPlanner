@@ -1,0 +1,133 @@
+﻿@page "/draw"
+@inject IJSRuntime JSRuntime
+@inject IShapeCalculatorService ShapeCalculatorService
+@inject IShapeHandlerService ShapeHandlerService
+@inject ICanvasInteropService CanvasInteropService
+
+@rendermode InteractiveServer
+
+<h3>Draw a Shape</h3>
+<div class="d-flex flex-wrap">
+    <div class="flex-grow-1 position-relative">
+        <div class="position-relative">
+            <canvas id="drawingCanvas"></canvas>
+            <div class="guidelines-overlay position-absolute top-0 start-0" style="@guidelinesStyle"></div>
+        </div>
+    </div>
+    <div class="flex-grow-1 p-3">
+        <div>
+            <label for="realLifeDistance">Real-life Distance (meters):</label>
+            <input type="number" @bind="realLifeDistance" id="realLifeDistance" class="form-control mb-3" />
+            <button @onclick="SetReferenceLine" class="btn btn-primary mb-3">Set Reference Line</button>
+            <button @onclick="UndoLastAction" class="btn btn-secondary mb-3">Undo</button>
+            <button @onclick="RedoLastAction" class="btn btn-secondary mb-3">Redo</button>
+            <button @onclick="ToggleGuidelines" class="btn btn-info mb-3">Toggle Guidelines</button>
+        </div>
+        <p>Area: @area square meters</p>
+
+        @if (shapeInfos.Count > 0)
+        {
+            <h4>Shapes Created:</h4>
+            <ul>
+                @foreach (var shapeInfo in shapeInfos)
+                {
+                    <li>
+                        @shapeInfo.Area
+                        <button @onclick="() => SelectShape(shapeInfos.IndexOf(shapeInfo))" class="btn btn-warning btn-sm">Edit</button>
+                        <button @onclick="() => DeleteShape(shapeInfos.IndexOf(shapeInfo))" class="btn btn-danger btn-sm">Delete</button>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+@code {
+    private double area = 0.0;
+    private List<List<Point>> shapes = new();
+    private List<ShapeInfo> shapeInfos = new();
+    private DotNetObjectReference<Draw> dotNetObjectRef = null!;
+    private double realLifeDistance;
+    private double pixelsPerMeter;
+    private bool settingReferenceLine = true;
+    private bool displayGridGuidelines = false;
+    private string guidelinesStyle => $"background-size: {pixelsPerMeter}px {pixelsPerMeter}px; display: {(displayGridGuidelines ? "block" : "none")};";
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            dotNetObjectRef = DotNetObjectReference.Create(this);
+            await CanvasInteropService.Initialize(dotNetObjectRef, "drawingCanvas");
+        }
+    }
+
+    [JSInvokable]
+    public void ShapeClosed(List<List<Point>> closedShapes)
+    {
+        shapes = closedShapes;
+        UpdateShapeInformation();
+    }
+
+    [JSInvokable]
+    public void SetPixelsPerMeter(double referenceLength)
+    {
+        pixelsPerMeter = referenceLength / realLifeDistance;
+        settingReferenceLine = false;
+        displayGridGuidelines = true;
+        UpdateShapeInformation();
+    }
+
+    [JSInvokable]
+    public void UpdateShapes(List<List<Point>> updatedShapes)
+    {
+        shapes = updatedShapes;
+        UpdateShapeInformation();
+    }
+
+    private async Task SetReferenceLine()
+    {
+        settingReferenceLine = true;
+        await CanvasInteropService.StartReferenceLine();
+    }
+
+    private async Task UndoLastAction()
+    {
+        await CanvasInteropService.UndoLastAction();
+    }
+
+    private async Task RedoLastAction()
+    {
+        await CanvasInteropService.RedoLastAction();
+    }
+
+    private async Task SelectShape(int index)
+    {
+        await CanvasInteropService.SelectShape(index);
+    }
+
+    private async Task DeleteShape(int index)
+    {
+        await CanvasInteropService.DeleteShape(index);
+    }
+
+    private void UpdateShapeInformation()
+    {
+        shapeInfos.Clear();
+        var shapesToCalculate = shapes.Select(s => s.Select(p => new Point(p.X / pixelsPerMeter, p.Y / pixelsPerMeter)).ToList()).ToList();
+        var calculatedShapes = ShapeHandlerService.CalculateShapeArea(shapesToCalculate);
+        shapeInfos.AddRange(calculatedShapes);
+        area = shapeInfos.Sum(si => si.Area);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        dotNetObjectRef?.Dispose();
+    }
+
+    private void ToggleGuidelines()
+    {
+        displayGridGuidelines = !displayGridGuidelines;
+        StateHasChanged();  // Re-render component
+    }
+}

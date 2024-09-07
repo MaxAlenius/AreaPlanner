@@ -13,6 +13,10 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddOutputCache();
 
+builder.Services.AddScoped<IShapeCalculatorService, ShapeCalculatorService>();
+builder.Services.AddScoped<IShapeHandlerService, ShapeHandlerService>();
+builder.Services.AddScoped<ICanvasInteropService, CanvasInteropService>();
+
 builder.Services.AddHttpClient<WeatherApiClient>(client =>
     {
         // This URL uses "https+http://" to indicate HTTPS is preferred over HTTP.
