@@ -7,6 +7,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" Version="8.2.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.8">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AreaPlanner.Common\AreaPlanner.Common.csproj" />
+    <ProjectReference Include="..\AreaPlanner.Data.Sql\AreaPlanner.Data.Sql.csproj" />
     <ProjectReference Include="..\AreaPlanner.ServiceDefaults\AreaPlanner.ServiceDefaults.csproj" />
   </ItemGroup>
 

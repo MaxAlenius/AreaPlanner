@@ -1,10 +1,18 @@
+global using AreaPlanner.Common.Data;
+using AreaPlanner.Data.Sql;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddSqlServerDbContext<ApplicationDbContext>("defaultConnection");
+
 
 // Add service defaults & Aspire components.
 builder.AddServiceDefaults();
 
 // Add services to the container.
 builder.Services.AddProblemDetails();
+
+builder.Services.AddTransient<ProjectRepository>();
 
 var app = builder.Build();
 
